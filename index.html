@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>29 Ekim Cumhuriyet Bayramı</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,7 +28,7 @@
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
   }
-  canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   canvas#scene:focus-visible { outline: 2px solid var(--red-bright); outline-offset: -2px; }
 
   .frame {
@@ -71,6 +75,8 @@
     padding: 8px 14px;
     border-radius: 999px;
     cursor: pointer;
+    white-space: nowrap;
+    touch-action: manipulation;
   }
   .musicdock { display: flex; gap: 6px; align-items: center; }
   .musicbtn.skip { padding: 8px 11px; }
@@ -84,7 +90,7 @@
     margin: 0;
     font-family: "Anton", "Arial Narrow", sans-serif;
     font-weight: 400;
-    font-size: clamp(64px, 17vw, 168px);
+    font-size: clamp(64px, min(17vw, 24vh), 168px);
     line-height: 0.94;
     letter-spacing: 0.015em;
     text-transform: uppercase;
@@ -158,8 +164,24 @@
     text-transform: uppercase;
     color: var(--gold);
   }
-  .eggcount { color: var(--gold); margin-left: 14px; letter-spacing: 0.14em; }
+  .eggcount { color: var(--gold); margin-left: 14px; letter-spacing: 0.14em; white-space: nowrap; }
   @keyframes rise { to { opacity: 1; transform: none; } }
+  /* Phones: music dock drops to its own row with finger-sized buttons */
+  @media (max-width: 600px) {
+    .top { flex-wrap: wrap; row-gap: 12px; }
+    .eyebrow { letter-spacing: 0.24em; }
+    .musicdock { order: 3; flex-basis: 100%; }
+    .musicbtn { min-width: 40px; min-height: 40px; }
+    .hint { letter-spacing: 0.12em; text-align: right; }
+    .eggcount { margin-left: 10px; }
+    .quotebox { width: 86vw; } /* left: 50% would otherwise cap it at half the screen */
+  }
+  /* Portrait: title block sits at the bottom; the scene fills the band above it (fitCamera) */
+  @media (max-aspect-ratio: 1/1) {
+    .frame { justify-content: flex-start; }
+    .titleblock { margin-top: auto; }
+    .hint { margin-top: 14px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .frame { background: none; }
     .quotebox { transition: none; transform: translateX(-50%); }
@@ -373,15 +395,55 @@
     });
   });
   function fitAtaturk() {
-    var narrow = camera.aspect < 1;
-    var s = narrow ? 0.62 : 1;
-    var x = narrow ? 2.1 : 3.55; // clear of the flag's fly edge (x = 2.25)
-    if (ataturk) { ataturk.scale.set(s, s, 1); ataturk.position.x = x; }
-    if (ataturkRim) { ataturkRim.scale.set(s, s, 1); ataturkRim.position.x = x - 0.06 * s; }
-    ataturkGlowA.position.x = ataturkGlowB.position.x = x;
-    ataturkGlowA.scale.setScalar(narrow ? 4.6 : 7);
-    ataturkGlowB.scale.setScalar(narrow ? 2.7 : 4);
- }
+    var s = 1, x = 3.55, y = -2.95 + 1.7; // wide: right of the flag's fly edge
+    if (camera.aspect < 1) {
+      // portrait: bust fills the band between the flag's lower edge and the title block
+      var top = atScreen(0, screenFrac(-0.65, 0) + 0.01, -2.6).y;
+      var bot = atScreen(0, band.bottom + 0.02, -2.6).y;
+      var right = atScreen(1, 0, -2.6).x, left = atScreen(0.4, 0, -2.6).x;
+      s = Math.min((top - bot) / 3.4, (right - left) / (3.4 * 900 / 1080));
+      x = right - 3.4 * 900 / 1080 * s / 2;
+      y = bot + 1.7 * s;
+    }
+    if (ataturk) { ataturk.scale.set(s, s, 1); ataturk.position.set(x, y, -2.6); }
+    if (ataturkRim) { ataturkRim.scale.set(s, s, 1); ataturkRim.position.set(x - 0.06 * s, y - 0.05 * s, -2.62); }
+    ataturkGlowA.position.set(x, y + 1.55 * s, -2.9);
+    ataturkGlowB.position.set(x, y + 1.05 * s, -2.8);
+    ataturkGlowA.scale.setScalar(7 * s);
+    ataturkGlowB.scale.setScalar(4 * s);
+  }
+
+  // ---- portrait framing: pull the camera back so pole..fly spans the width, and fit
+  //      flag + bust into the band between the top bar and the title block ----
+  var HALF_TAN = Math.tan(camera.fov * Math.PI / 360);
+  var band = { top: 0.12, bottom: 0.75 }; // screen fractions, measured in resize()
+  function atScreen(fx, fy, z) {
+    var hh = (camera.position.z - z) * HALF_TAN;
+    return {
+      x: camera.position.x + (fx * 2 - 1) * hh * camera.aspect,
+      y: camera.position.y + (1 - fy * 2) * hh
+    };
+  }
+  function screenFrac(y, z) {
+    return 0.5 - (y - camera.position.y) / (2 * (camera.position.z - z) * HALF_TAN);
+  }
+  function fitCamera() {
+    if (camera.aspect < 1) {
+      var dist = Math.max(8.2, 2.75 / (HALF_TAN * camera.aspect),
+        6.4 / ((band.bottom - band.top) * 2 * HALF_TAN));
+      // finial (y = 2.6) sits a little under the top bar, leaving sky for bursts
+      camera.position.set(-0.95, 2.6 - (1 - 2 * (band.top + 0.06)) * dist * HALF_TAN, dist);
+    } else {
+      camera.position.set(0, 0.4, 8.2);
+    }
+    var push = camera.position.z - 8.2;
+    scene.fog.near = 16 + push;
+    scene.fog.far = 42 + push;
+    // pole always runs off the bottom of the screen
+    var len = Math.max(6.6, 2.45 - atScreen(0, 1, 0).y + 0.5);
+    pole.scale.y = len / 6.6;
+    pole.position.y = 2.45 - len / 2;
+  }
 
   // ---- fireworks ----
   var bursts = [];
@@ -422,7 +484,10 @@
   }
 
   function launch(tx, ty) {
-    if (tx === undefined) {
+    if (tx === undefined && camera.aspect < 1) {
+      var p = atScreen(0.12 + Math.random() * 0.76, band.top + Math.random() * 0.3, 0);
+      tx = p.x; ty = p.y;
+    } else if (tx === undefined) {
       tx = -3.6 + Math.random() * 7.2;
       ty = 1.4 + Math.random() * 2.2;
     }
@@ -430,9 +495,11 @@
       new THREE.SphereGeometry(0.035, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xfff6da })
     );
-    m.position.set(tx + (Math.random() - 0.5) * 0.8, -3.4, -1 + Math.random() * 1.5);
+    // start just below the visible bottom; speed scales with camera distance
+    var y0 = Math.min(-3.4, atScreen(0, 1, 0).y - 0.3);
+    m.position.set(tx + (Math.random() - 0.5) * 0.8, y0, -1 + Math.random() * 1.5);
     scene.add(m);
-    rockets.push({ mesh: m, targetY: ty, speed: 3.4 + Math.random() * 1.2 });
+    rockets.push({ mesh: m, targetY: ty, speed: (3.4 + Math.random() * 1.2) * camera.position.z / 8.2 });
   }
 
   function worldFromEvent(ev) {
@@ -445,7 +512,8 @@
     var dir = v.sub(camera.position).normalize();
     var t = -camera.position.z / dir.z;
     var p = camera.position.clone().add(dir.multiplyScalar(t));
-    return { x: Math.max(-4.2, Math.min(4.2, p.x)), y: Math.max(0.6, Math.min(4.2, p.y)) };
+    var floor = camera.aspect < 1 ? -0.65 : 0.6; // portrait: down to the flag's lower edge
+    return { x: Math.max(-4.2, Math.min(4.2, p.x)), y: Math.max(floor, Math.min(4.2, p.y)) };
   }
 
   var nextLaunch = 0.6;
@@ -462,7 +530,9 @@
   var FINALE = { t: "Ne mutlu Türk'üm diyene.", m: "1933 · Ankara" };
   var EGG_Z = -1.2;
   var EGGS_WIDE = [[-3.05, 2.9], [0.3, 3.25], [4.55, 0.4], [0.7, -2.55], [-3.05, -1.7], [2.7, 2.55]];
-  var EGGS_NARROW = [[0, 3.3], [-1.5, 2.95], [1.5, 3.05], [-1.35, -1.7], [1.35, -2.1], [0, -2.5]];
+  // portrait: [screen x, zone (0 = sky above flag, 1 = beside the bust), position within zone]
+  var EGGS_NARROW = [[0.3, 0, 0.5], [0.62, 0, 0.35], [0.9, 0, 0.6], [0.2, 1, 0.12], [0.34, 1, 0.5], [0.18, 1, 0.85]];
+  var eggK = 1; // portrait camera sits further back; enlarge eggs to stay tappable
 
   function starTexture() {
     var c = document.createElement("canvas");
@@ -498,8 +568,17 @@
     eggs.push(egg);
   }
   function layoutEggs() {
-    var pts = camera.aspect < 1 ? EGGS_NARROW : EGGS_WIDE;
-    for (var i = 0; i < eggs.length; i++) eggs[i].position.set(pts[i][0], pts[i][1], EGG_Z);
+    var narrow = camera.aspect < 1;
+    eggK = narrow ? Math.sqrt(camera.position.z / 8.2) : 1;
+    var skyTop = band.top + 0.02, skyBot = screenFrac(2.35, 0) - 0.02;
+    var lowTop = screenFrac(-0.65, 0) + 0.03, lowBot = band.bottom - 0.03;
+    for (var i = 0; i < eggs.length; i++) {
+      if (!narrow) { eggs[i].position.set(EGGS_WIDE[i][0], EGGS_WIDE[i][1], EGG_Z); continue; }
+      var e = EGGS_NARROW[i];
+      var fy = e[1] ? lowTop + e[2] * (lowBot - lowTop) : skyTop + e[2] * (skyBot - skyTop);
+      var p = atScreen(e[0], fy, EGG_Z);
+      eggs[i].position.set(p.x, p.y, EGG_Z);
+    }
   }
   function eggCountText() {
     var n = eggFound.filter(Boolean).length;
@@ -622,16 +701,25 @@
   trackLabel();
 
   // ---- resize ----
+  var topBar = document.querySelector(".top");
+  var titleBlock = document.querySelector(".titleblock");
+  var quoteBox = document.getElementById("quotebox");
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
+    band.top = topBar.getBoundingClientRect().bottom / h;
+    band.bottom = titleBlock.getBoundingClientRect().top / h;
+    fitCamera();
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
     fitAtaturk();
     layoutEggs();
+    // portrait: quotes appear just above the title block instead of over it
+    quoteBox.style.bottom = camera.aspect < 1 ? Math.round(h * (1 - band.bottom) + 12) + "px" : "";
   }
   window.addEventListener("resize", resize);
   resize();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize); // web fonts change text heights
 
   // ---- loop ----
   var clock = new THREE.Clock();
@@ -658,10 +746,10 @@
       stars.rotation.y = t * 0.006;
       for (var e = 0; e < eggs.length; e++) {
         var em = eggs[e].material;
-        if (eggFound[e]) { em.opacity = 0.4; eggs[e].scale.setScalar(0.24); }
+        if (eggFound[e]) { em.opacity = 0.4; eggs[e].scale.setScalar(0.24 * eggK); }
         else {
           em.opacity = 0.72 + Math.sin(t * 2.1 + e * 1.7) * 0.22;
-          eggs[e].scale.setScalar(0.3 + Math.sin(t * 1.6 + e * 2.3) * 0.05);
+          eggs[e].scale.setScalar((0.3 + Math.sin(t * 1.6 + e * 2.3) * 0.05) * eggK);
         }
       }
     }
