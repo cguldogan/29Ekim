@@ -618,7 +618,8 @@
 
   // ---- input ----
   window.addEventListener("pointerdown", function (ev) {
-    if (musicPref && !musicOn) startMusic(); // resume preferred music on first gesture
+    // browsers block audible autoplay; the first gesture starts it (the music button toggles itself)
+    if (musicPref && !musicOn && !musicBtn.contains(ev.target)) startMusic();
     var px = ev.clientX, py = ev.clientY;
     var best = -1, bestD = 34; // px radius in which a click lands on an egg
     var v = new THREE.Vector3();
@@ -634,6 +635,7 @@
     launch(w.x, w.y);
   });
   window.addEventListener("keydown", function (ev) {
+    if (musicPref && !musicOn && ev.target !== musicBtn) startMusic();
     if (ev.code === "Space" || ev.code === "Enter") {
       ev.preventDefault();
       launch();
@@ -658,7 +660,7 @@
   song.volume = 0.7;
   var musicOn = false, musicPref = false, trackIdx = 0;
   try {
-    musicPref = window.localStorage.getItem("cumhuriyet-music") === "1";
+    musicPref = window.localStorage.getItem("cumhuriyet-music") !== "0"; // on unless turned off
     trackIdx = parseInt(window.localStorage.getItem("cumhuriyet-track") || "0", 10) || 0;
   } catch (e) {}
   if (!(trackIdx >= 0 && trackIdx < PLAYLIST.length)) trackIdx = 0;
@@ -699,6 +701,7 @@
   nextBtn.addEventListener("click", function () { loadTrack(trackIdx + 1, musicOn); });
   song.addEventListener("ended", function () { loadTrack(trackIdx + 1, true); }); // loop the playlist
   trackLabel();
+  if (musicPref) startMusic(); // plays on load where autoplay is allowed
 
   // ---- resize ----
   var topBar = document.querySelector(".top");

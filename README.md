@@ -17,7 +17,9 @@ An interactive night-scene celebration of the Turkish Republic's founding day
   reveal a verbatim Atatürk quote (source:
   [ata.msb.gov.tr](https://ata.msb.gov.tr/Sayfa/SayfaGoster/ataturkun-diger-konular-ile-ilgili-vecizeleri)).
   Finding all six triggers a finale. Found eggs are remembered per browser
-- **March playlist** — six recordings with prev/next/loop:
+- **March playlist** — six recordings with prev/next/loop. Music is on by
+  default: it starts on load where the browser allows autoplay, otherwise on
+  the first tap or key press. Turning it off is remembered per browser:
 
   | #   | Piece              | Performance                            |
   | --- | ------------------ | -------------------------------------- |
